@@ -41,14 +41,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case ReceiveNotice:
+		// 受け取ったらmodelの中に保存してあげる
 		m.responses = append(m.responses, msg)
-		//m.viewport.SetContent(strings.Join(, "\n"))
+		// viewportに出力する内容
 		s := ""
+		// responsesは最終的に巨大な配列になる可能性があるので
+		// 全てを描写するのではなく、最小を描写する
+		// 配列の最終
 		rangeE := len(m.responses) - 1
+		// 配列の最初
 		var rangeS int
 		if len(m.responses) <= 10 {
 			rangeS = 0
 		} else {
+			// 最初ではなく、最後から、vpで表示できる最大数取り出す。
 			rangeS = len(m.responses) - 10
 		}
 		for _, resp := range m.responses[rangeS:rangeE] {
@@ -65,10 +71,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 
 	var view string
-
-	//for _, resp := range m.responses {
-	//	view += fmt.Sprintf("(%v) %v", resp.Id, resp.Content)
-	//}
 
 	view += m.viewport.View()
 	view += "\n\n"
