@@ -1,8 +1,9 @@
 package tui_client
 
 import (
-	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/submaline/tui-client/gen/greet/v1/greetv1connect"
+
 	//greetv1 "tui-client/gen/greet/v1"
 	"github.com/charmbracelet/bubbles/viewport"
 )
@@ -11,69 +12,58 @@ import (
 type Model struct {
 	viewport  viewport.Model
 	responses []ReceiveNotice
+
+	isLoggedIn      bool
+	readyToStream   bool
+	greetV1Client   *greetv1connect.GreetServiceClient
+	ReceiveNoticeCh chan ReceiveNotice
 }
 
-func InitializeModel() Model {
+func InitializeModel(ch chan ReceiveNotice, cl *greetv1connect.GreetServiceClient) Model {
 	vp := viewport.New(30, 10)
 
 	return Model{
-		viewport:  vp,
-		responses: []ReceiveNotice{},
+		viewport:        vp,
+		responses:       []ReceiveNotice{},
+		isLoggedIn:      false,
+		readyToStream:   false,
+		greetV1Client:   cl,
+		ReceiveNoticeCh: ch,
 	}
 }
 
 // Init 初期化
 func (m Model) Init() tea.Cmd {
-	return nil
+	return ReceiveNotifier(m.ReceiveNoticeCh)
 }
 
 // Update Msgによって画面を更新するんだと思う
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
-	var vpCmd tea.Cmd
-
-	m.viewport, vpCmd = m.viewport.Update(msg)
-
+	// 常に同じ動きをするもの
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			return m, tea.Quit
 		}
-	case ReceiveNotice:
-		// 受け取ったらmodelの中に保存してあげる
-		m.responses = append(m.responses, msg)
-		// viewportに出力する内容
-		s := ""
-		// responsesは最終的に巨大な配列になる可能性があるので
-		// 全てを描写するのではなく、最小を描写する
-		// 配列の最終
-		rangeE := len(m.responses) - 1
-		// 配列の最初
-		var rangeS int
-		if len(m.responses) <= 10 {
-			rangeS = 0
-		} else {
-			// 最初ではなく、最後から、vpで表示できる最大数取り出す。
-			rangeS = len(m.responses) - 10
-		}
-		for _, resp := range m.responses[rangeS:rangeE] {
-			s += fmt.Sprintf("(%v) %v\n", resp.Id, resp.Content)
-		}
-		m.viewport.SetContent(s)
-		m.viewport.GotoBottom()
 	}
 
-	return m, tea.Batch(vpCmd)
+	if m.isLoggedIn {
+		return chatUpdate(msg, m)
+	} else {
+		return loginUpdate(msg, m)
+	}
+
 }
 
 // View 描写
 func (m Model) View() string {
-
-	var view string
-
-	view += m.viewport.View()
-	view += "\n\n"
-
-	return view
+	var s string
+	if m.isLoggedIn {
+		s = chatView(m)
+	} else {
+		s = loginView(m)
+	}
+	return s + "\n\n"
 }
